@@ -41,8 +41,23 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
     private connections: DatabaseConnection[] = [];
     private tableCache: Map<string, TableTreeItem[]> = new Map();
 
-    refresh(): void {
+    constructor() {
+        this.loadConnections();
+    }    refresh(): void {
         this._onDidChangeTreeData.fire();
+    }
+
+    private loadConnections(): void {
+        const config = vscode.workspace.getConfiguration('database-manager');
+        const savedConnections = config.get<DatabaseConnection[]>('connections', []);
+        this.connections = savedConnections;
+        console.log('Loaded connections:', this.connections.length);
+    }
+
+    private async saveConnections(): Promise<void> {
+        const config = vscode.workspace.getConfiguration('database-manager');
+        await config.update('connections', this.connections, vscode.ConfigurationTarget.Global);
+        console.log('Saved connections:', this.connections.length);
     }
 
     getTreeItem(element: ConnectionTreeItem | TableTreeItem): vscode.TreeItem {
@@ -96,10 +111,10 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
         }
 
         return [];
-    }
-
-    async addConnection(connection: DatabaseConnection): Promise<void> {
+    }    async addConnection(connection: DatabaseConnection): Promise<void> {
         try {
+            console.log('Attempting to add connection:', connection.name);
+            
             // Testa a conexão antes de adicionar
             const client = new Client({
                 host: connection.host,
@@ -109,25 +124,29 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
                 password: connection.password
             });
 
+            console.log('Testing connection...');
             await client.connect();
             await client.end();
+            console.log('Connection test successful');
 
             this.connections.push(connection);
+            await this.saveConnections();
             this.refresh();
             vscode.window.showInformationMessage(`Connection '${connection.name}' added successfully!`);
+            console.log('Connection added successfully');
         } catch (error) {
+            console.error('Failed to add connection:', error);
             vscode.window.showErrorMessage(`Failed to connect: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
-    }
-
-    removeConnection(connectionId: string): void {
+    }    async removeConnection(connectionId: string): Promise<void> {
         const index = this.connections.findIndex(conn => conn.id === connectionId);
         if (index !== -1) {
             const connection = this.connections[index];
             this.connections.splice(index, 1);
             // Remove as tabelas do cache
             this.tableCache.delete(connectionId);
+            await this.saveConnections();
             this.refresh();
             vscode.window.showInformationMessage(`Connection '${connection.name}' removed successfully!`);
         }

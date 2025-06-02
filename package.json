@@ -49,14 +49,49 @@
           "when": "view == databaseConnections",
           "group": "navigation"
         }
-      ],
-      "view/item/context": [
+      ],      "view/item/context": [
         {
           "command": "database-manager.removeConnection",
           "when": "view == databaseConnections",
           "group": "inline"
         }
       ]
+    },
+    "configuration": {
+      "title": "Database Manager",
+      "properties": {
+        "database-manager.connections": {
+          "type": "array",
+          "default": [],
+          "description": "Saved database connections",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "number"
+              },
+              "database": {
+                "type": "string"
+              },
+              "username": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "scripts": {

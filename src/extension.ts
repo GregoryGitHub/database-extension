@@ -11,12 +11,12 @@ export function activate(context: vscode.ExtensionContext) {
     // Registra a view
     vscode.window.createTreeView('databaseConnections', {
         treeDataProvider: connectionProvider
-    });
-
-    // Comando para adicionar uma nova conexão
+    });    // Comando para adicionar uma nova conexão
     context.subscriptions.push(
         vscode.commands.registerCommand('database-manager.addConnection', () => {
+            console.log('Add connection command triggered');
             ConnectionFormPanel.createOrShow(context.extensionUri, async (data: Omit<DatabaseConnection, 'id'>) => {
+                console.log('Form data received:', data);
                 const connection: DatabaseConnection = {
                     id: Date.now().toString(),
                     ...data
@@ -26,6 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
                     await connectionProvider.addConnection(connection);
                 } catch (error) {
                     // Erro já é tratado no addConnection
+                    console.error('Error in command handler:', error);
                 }
             });
         })
@@ -43,7 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
                 );
 
                 if (confirmed === 'Yes') {
-                    connectionProvider.removeConnection(item.connection.id);
+                    await connectionProvider.removeConnection(item.connection.id);
                 }
             }
         })

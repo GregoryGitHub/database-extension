@@ -3,17 +3,25 @@ import * as vscode from 'vscode';
 export class ConnectionFormPanel {
     public static currentPanel: ConnectionFormPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];
-
-    private constructor(panel: vscode.WebviewPanel, onSubmit: (data: any) => void) {
+    private _disposables: vscode.Disposable[] = [];    private constructor(panel: vscode.WebviewPanel, onSubmit: (data: any) => Promise<void>) {
         this._panel = panel;
         this._panel.webview.html = this._getHtmlContent();
         this._panel.webview.onDidReceiveMessage(
-            message => {
+            async message => {
                 switch (message.command) {
                     case 'submitConnection':
-                        onSubmit(message.data);
-                        this._panel.dispose();
+                        try {
+                            console.log('Webview received connection data:', message.data);
+                            await onSubmit(message.data);
+                            this._panel.dispose();
+                        } catch (error) {
+                            console.error('Error submitting connection:', error);
+                            // Send error back to webview
+                            this._panel.webview.postMessage({
+                                command: 'connectionError',
+                                error: error instanceof Error ? error.message : String(error)
+                            });
+                        }
                         return;
                     case 'cancel':
                         this._panel.dispose();
@@ -23,9 +31,7 @@ export class ConnectionFormPanel {
             undefined,
             this._disposables
         );
-    }
-
-    public static createOrShow(extensionUri: vscode.Uri, onSubmit: (data: any) => void) {
+    }    public static createOrShow(extensionUri: vscode.Uri, onSubmit: (data: any) => Promise<void>) {
         const column = vscode.window.activeTextEditor
             ? vscode.window.activeTextEditor.viewColumn
             : undefined;
@@ -90,10 +96,18 @@ export class ConnectionFormPanel {
                 .primary {
                     background: var(--vscode-button-background);
                     color: var(--vscode-button-foreground);
-                }
-                .secondary {
+                }                .secondary {
                     background: var(--vscode-button-secondaryBackground);
                     color: var(--vscode-button-secondaryForeground);
+                }
+                .error {
+                    color: var(--vscode-errorForeground);
+                    margin-top: 10px;
+                    display: none;
+                }
+                .loading {
+                    opacity: 0.6;
+                    pointer-events: none;
                 }
             </style>
         </head>
@@ -122,17 +136,29 @@ export class ConnectionFormPanel {
                 <div class="form-group">
                     <label for="password">Password:</label>
                     <input type="password" id="password" name="password" required>
-                </div>
-                <div class="buttons">
+                </div>                <div class="buttons">
                     <button type="button" class="secondary" onclick="cancel()">Cancel</button>
-                    <button type="submit" class="primary">Connect</button>
+                    <button type="submit" class="primary" id="connectBtn">Connect</button>
                 </div>
+                <div class="error" id="errorMessage"></div>
             </form>
             <script>
                 const vscode = acquireVsCodeApi();
                 
                 document.getElementById('connectionForm').addEventListener('submit', (e) => {
                     e.preventDefault();
+                    
+                    const form = e.target;
+                    const connectBtn = document.getElementById('connectBtn');
+                    const errorMessage = document.getElementById('errorMessage');
+                    
+                    // Reset error message
+                    errorMessage.style.display = 'none';
+                    
+                    // Show loading state
+                    form.classList.add('loading');
+                    connectBtn.textContent = 'Connecting...';
+                    
                     const formData = new FormData(e.target);
                     const data = {
                         name: formData.get('name'),
@@ -142,10 +168,31 @@ export class ConnectionFormPanel {
                         username: formData.get('username'),
                         password: formData.get('password')
                     };
+                    
+                    console.log('Sending connection data:', data);
+                    
                     vscode.postMessage({
                         command: 'submitConnection',
                         data
                     });
+                });
+
+                // Listen for messages from the extension
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    if (message.command === 'connectionError') {
+                        const form = document.getElementById('connectionForm');
+                        const connectBtn = document.getElementById('connectBtn');
+                        const errorMessage = document.getElementById('errorMessage');
+                        
+                        // Remove loading state
+                        form.classList.remove('loading');
+                        connectBtn.textContent = 'Connect';
+                        
+                        // Show error message
+                        errorMessage.textContent = message.error;
+                        errorMessage.style.display = 'block';
+                    }
                 });
 
                 function cancel() {
