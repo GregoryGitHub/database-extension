@@ -1,10 +1,16 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class ConnectionFormPanel {
     public static currentPanel: ConnectionFormPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
-    private _disposables: vscode.Disposable[] = [];    private constructor(panel: vscode.WebviewPanel, onSubmit: (data: any) => Promise<void>) {
+    private _disposables: vscode.Disposable[] = [];
+    private readonly _extensionUri: vscode.Uri;
+
+    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, onSubmit: (data: any) => Promise<void>) {
         this._panel = panel;
+        this._extensionUri = extensionUri;
         this._panel.webview.html = this._getHtmlContent();
         this._panel.webview.onDidReceiveMessage(
             async message => {
@@ -51,156 +57,10 @@ export class ConnectionFormPanel {
             }
         );
 
-        ConnectionFormPanel.currentPanel = new ConnectionFormPanel(panel, onSubmit);
-    }
-
-    private _getHtmlContent(): string {
-        return `<!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                body {
-                    padding: 20px;
-                    font-family: var(--vscode-font-family);
-                    color: var(--vscode-foreground);
-                }
-                .form-group {
-                    margin-bottom: 15px;
-                }
-                label {
-                    display: block;
-                    margin-bottom: 5px;
-                }
-                input {
-                    width: 100%;
-                    padding: 8px;
-                    border: 1px solid var(--vscode-input-border);
-                    background: var(--vscode-input-background);
-                    color: var(--vscode-input-foreground);
-                    border-radius: 2px;
-                }
-                .buttons {
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 10px;
-                    margin-top: 20px;
-                }
-                button {
-                    padding: 8px 16px;
-                    border: none;
-                    border-radius: 2px;
-                    cursor: pointer;
-                }
-                .primary {
-                    background: var(--vscode-button-background);
-                    color: var(--vscode-button-foreground);
-                }                .secondary {
-                    background: var(--vscode-button-secondaryBackground);
-                    color: var(--vscode-button-secondaryForeground);
-                }
-                .error {
-                    color: var(--vscode-errorForeground);
-                    margin-top: 10px;
-                    display: none;
-                }
-                .loading {
-                    opacity: 0.6;
-                    pointer-events: none;
-                }
-            </style>
-        </head>
-        <body>
-            <form id="connectionForm">
-                <div class="form-group">
-                    <label for="name">Connection Name:</label>
-                    <input type="text" id="name" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="host">Host:</label>
-                    <input type="text" id="host" name="host" value="localhost" required>
-                </div>
-                <div class="form-group">
-                    <label for="port">Port:</label>
-                    <input type="number" id="port" name="port" value="5432" required>
-                </div>
-                <div class="form-group">
-                    <label for="database">Database:</label>
-                    <input type="text" id="database" name="database" required>
-                </div>
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>                <div class="buttons">
-                    <button type="button" class="secondary" onclick="cancel()">Cancel</button>
-                    <button type="submit" class="primary" id="connectBtn">Connect</button>
-                </div>
-                <div class="error" id="errorMessage"></div>
-            </form>
-            <script>
-                const vscode = acquireVsCodeApi();
-                
-                document.getElementById('connectionForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    
-                    const form = e.target;
-                    const connectBtn = document.getElementById('connectBtn');
-                    const errorMessage = document.getElementById('errorMessage');
-                    
-                    // Reset error message
-                    errorMessage.style.display = 'none';
-                    
-                    // Show loading state
-                    form.classList.add('loading');
-                    connectBtn.textContent = 'Connecting...';
-                    
-                    const formData = new FormData(e.target);
-                    const data = {
-                        name: formData.get('name'),
-                        host: formData.get('host'),
-                        port: parseInt(formData.get('port')),
-                        database: formData.get('database'),
-                        username: formData.get('username'),
-                        password: formData.get('password')
-                    };
-                    
-                    console.log('Sending connection data:', data);
-                    
-                    vscode.postMessage({
-                        command: 'submitConnection',
-                        data
-                    });
-                });
-
-                // Listen for messages from the extension
-                window.addEventListener('message', event => {
-                    const message = event.data;
-                    if (message.command === 'connectionError') {
-                        const form = document.getElementById('connectionForm');
-                        const connectBtn = document.getElementById('connectBtn');
-                        const errorMessage = document.getElementById('errorMessage');
-                        
-                        // Remove loading state
-                        form.classList.remove('loading');
-                        connectBtn.textContent = 'Connect';
-                        
-                        // Show error message
-                        errorMessage.textContent = message.error;
-                        errorMessage.style.display = 'block';
-                    }
-                });
-
-                function cancel() {
-                    vscode.postMessage({ command: 'cancel' });
-                }
-            </script>
-        </body>
-        </html>`;
+        ConnectionFormPanel.currentPanel = new ConnectionFormPanel(panel, extensionUri, onSubmit);
+    }    private _getHtmlContent(): string {
+        const htmlPath = path.join(this._extensionUri.fsPath, 'src', 'webview', 'html', 'connectionForm.html');
+        return fs.readFileSync(htmlPath, 'utf8');
     }
 
     public dispose() {
