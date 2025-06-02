@@ -12,12 +12,52 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "database-explorer",
+          "title": "Database Explorer",
+          "icon": "$(database)"
+        }
+      ]
+    },
+    "views": {
+      "database-explorer": [
+        {
+          "id": "databaseConnections",
+          "name": "Database Connections",
+          "contextualTitle": "Database Connections"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "database-manager.helloWorld",
-        "title": "Hello World"
+        "command": "database-manager.addConnection",
+        "title": "Add Database Connection",
+        "icon": "$(add)"
+      },
+      {
+        "command": "database-manager.removeConnection",
+        "title": "Remove Connection",
+        "icon": "$(trash)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "database-manager.addConnection",
+          "when": "view == databaseConnections",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "database-manager.removeConnection",
+          "when": "view == databaseConnections",
+          "group": "inline"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",

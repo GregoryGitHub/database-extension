@@ -1,26 +1,53 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { ConnectionTreeProvider, DatabaseConnection } from './database/connectionManager';
+import { ConnectionFormPanel } from './webview/connectionForm';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+    // Mostra mensagem de ativação
+    vscode.window.showInformationMessage('Database Manager extension is now active!');
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "database-manager" is now active!');
+    const connectionProvider = new ConnectionTreeProvider();
+    
+    // Registra a view
+    vscode.window.createTreeView('databaseConnections', {
+        treeDataProvider: connectionProvider
+    });
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('database-manager.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Database Manager!');
-	});
+    // Comando para adicionar uma nova conexão
+    context.subscriptions.push(
+        vscode.commands.registerCommand('database-manager.addConnection', () => {
+            ConnectionFormPanel.createOrShow(context.extensionUri, async (data: Omit<DatabaseConnection, 'id'>) => {
+                const connection: DatabaseConnection = {
+                    id: Date.now().toString(),
+                    ...data
+                };
 
-	context.subscriptions.push(disposable);
+                try {
+                    await connectionProvider.addConnection(connection);
+                } catch (error) {
+                    // Erro já é tratado no addConnection
+                }
+            });
+        })
+    );
+
+    // Comando para remover uma conexão
+    context.subscriptions.push(
+        vscode.commands.registerCommand('database-manager.removeConnection', async (item) => {
+            if (item && item.connection) {
+                const confirmed = await vscode.window.showWarningMessage(
+                    `Are you sure you want to remove the connection '${item.connection.name}'?`,
+                    { modal: true },
+                    'Yes',
+                    'No'
+                );
+
+                if (confirmed === 'Yes') {
+                    connectionProvider.removeConnection(item.connection.id);
+                }
+            }
+        })
+    );
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
