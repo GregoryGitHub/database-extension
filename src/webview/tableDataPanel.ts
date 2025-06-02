@@ -1,0 +1,400 @@
+import * as vscode from 'vscode';
+import { Client } from 'pg';
+import { DatabaseConnection } from '../database/connectionManager';
+
+export interface TableInfo {
+    name: string;
+    schema: string;
+    connection: DatabaseConnection;
+}
+
+export class TableDataPanel {
+    public static currentPanel: TableDataPanel | undefined;
+    private readonly _panel: vscode.WebviewPanel;
+    private _disposables: vscode.Disposable[] = [];
+    private readonly _tableInfo: TableInfo;
+
+    private constructor(panel: vscode.WebviewPanel, tableInfo: TableInfo) {
+        this._panel = panel;
+        this._tableInfo = tableInfo;
+        this._panel.webview.html = this._getHtmlContent();
+        
+        // Load initial data
+        this._loadTableData();
+        
+        this._panel.webview.onDidReceiveMessage(
+            async message => {
+                switch (message.command) {
+                    case 'executeQuery':
+                        await this._executeQuery(message.query);
+                        return;
+                    case 'loadTableData':
+                        await this._loadTableData();
+                        return;
+                }
+            },
+            undefined,
+            this._disposables
+        );
+    }
+
+    public static createOrShow(extensionUri: vscode.Uri, tableInfo: TableInfo) {
+        const column = vscode.window.activeTextEditor
+            ? vscode.window.activeTextEditor.viewColumn
+            : undefined;
+
+        // If we already have a panel, dispose it
+        if (TableDataPanel.currentPanel) {
+            TableDataPanel.currentPanel.dispose();
+        }
+
+        const panel = vscode.window.createWebviewPanel(
+            'tableData',
+            `${tableInfo.schema}.${tableInfo.name} - ${tableInfo.connection.name}`,
+            column || vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true
+            }
+        );
+
+        TableDataPanel.currentPanel = new TableDataPanel(panel, tableInfo);
+    }
+
+    private async _loadTableData(): Promise<void> {
+        try {
+            const query = `SELECT * FROM "${this._tableInfo.schema}"."${this._tableInfo.name}" LIMIT 200`;
+            await this._executeQuery(query);
+        } catch (error) {
+            this._panel.webview.postMessage({
+                command: 'error',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    private async _executeQuery(query: string): Promise<void> {
+        try {
+            const client = new Client({
+                host: this._tableInfo.connection.host,
+                port: this._tableInfo.connection.port,
+                database: this._tableInfo.connection.database,
+                user: this._tableInfo.connection.username,
+                password: this._tableInfo.connection.password
+            });
+
+            await client.connect();
+            
+            const result = await client.query(query);
+            
+            await client.end();
+
+            this._panel.webview.postMessage({
+                command: 'queryResult',
+                data: {
+                    columns: result.fields.map(field => field.name),
+                    rows: result.rows,
+                    rowCount: result.rowCount
+                }
+            });
+        } catch (error) {
+            this._panel.webview.postMessage({
+                command: 'error',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+
+    private _getHtmlContent(): string {
+        return `<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Table Data - ${this._tableInfo.schema}.${this._tableInfo.name}</title>
+            <style>
+                body {
+                    padding: 20px;
+                    font-family: var(--vscode-font-family);
+                    color: var(--vscode-foreground);
+                    background: var(--vscode-editor-background);
+                }
+                
+                .query-section {
+                    margin-bottom: 20px;
+                    border: 1px solid var(--vscode-panel-border);
+                    padding: 15px;
+                    border-radius: 4px;
+                    background: var(--vscode-editor-background);
+                }
+                
+                .query-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                }
+                
+                .query-header h3 {
+                    margin: 0;
+                    color: var(--vscode-foreground);
+                }
+                
+                .query-actions {
+                    display: flex;
+                    gap: 10px;
+                }
+                
+                textarea {
+                    width: 100%;
+                    min-height: 80px;
+                    padding: 8px;
+                    border: 1px solid var(--vscode-input-border);
+                    background: var(--vscode-input-background);
+                    color: var(--vscode-input-foreground);
+                    border-radius: 2px;
+                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                    resize: vertical;
+                }
+                
+                button {
+                    padding: 6px 12px;
+                    border: none;
+                    border-radius: 2px;
+                    cursor: pointer;
+                    font-size: 12px;
+                }
+                
+                .primary {
+                    background: var(--vscode-button-background);
+                    color: var(--vscode-button-foreground);
+                }
+                
+                .primary:hover {
+                    background: var(--vscode-button-hoverBackground);
+                }
+                
+                .secondary {
+                    background: var(--vscode-button-secondaryBackground);
+                    color: var(--vscode-button-secondaryForeground);
+                }
+                
+                .data-section {
+                    border: 1px solid var(--vscode-panel-border);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                
+                .data-header {
+                    background: var(--vscode-editor-background);
+                    padding: 10px 15px;
+                    border-bottom: 1px solid var(--vscode-panel-border);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                
+                .data-header h3 {
+                    margin: 0;
+                    color: var(--vscode-foreground);
+                }
+                
+                .row-count {
+                    color: var(--vscode-descriptionForeground);
+                    font-size: 12px;
+                }
+                
+                .table-container {
+                    max-height: 600px;
+                    overflow: auto;
+                    background: var(--vscode-editor-background);
+                }
+                
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: var(--vscode-editor-background);
+                }
+                
+                th, td {
+                    padding: 8px 12px;
+                    text-align: left;
+                    border-bottom: 1px solid var(--vscode-panel-border);
+                    font-size: 12px;
+                }
+                
+                th {
+                    background: var(--vscode-editor-background);
+                    color: var(--vscode-foreground);
+                    font-weight: 600;
+                    position: sticky;
+                    top: 0;
+                    border-bottom: 2px solid var(--vscode-panel-border);
+                }
+                
+                td {
+                    color: var(--vscode-foreground);
+                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                }
+                
+                tr:hover {
+                    background: var(--vscode-list-hoverBackground);
+                }
+                
+                .error {
+                    color: var(--vscode-errorForeground);
+                    background: var(--vscode-inputValidation-errorBackground);
+                    border: 1px solid var(--vscode-inputValidation-errorBorder);
+                    padding: 10px;
+                    border-radius: 4px;
+                    margin: 10px 0;
+                }
+                
+                .loading {
+                    text-align: center;
+                    padding: 20px;
+                    color: var(--vscode-descriptionForeground);
+                }
+                
+                .no-data {
+                    text-align: center;
+                    padding: 40px;
+                    color: var(--vscode-descriptionForeground);
+                }
+            </style>
+        </head>
+        <body>
+            <div class="query-section">
+                <div class="query-header">
+                    <h3>SQL Query</h3>
+                    <div class="query-actions">
+                        <button class="secondary" onclick="loadTableData()">Load Table Data</button>
+                        <button class="primary" onclick="executeQuery()">Execute Query</button>
+                    </div>
+                </div>
+                <textarea id="queryInput" placeholder="Enter your SQL query here...">SELECT * FROM "${this._tableInfo.schema}"."${this._tableInfo.name}" LIMIT 200;</textarea>
+            </div>
+            
+            <div class="data-section">
+                <div class="data-header">
+                    <h3>Results</h3>
+                    <div class="row-count" id="rowCount">Loading...</div>
+                </div>
+                <div class="table-container" id="tableContainer">
+                    <div class="loading">Loading table data...</div>
+                </div>
+            </div>
+            
+            <script>
+                const vscode = acquireVsCodeApi();
+                
+                function executeQuery() {
+                    const query = document.getElementById('queryInput').value.trim();
+                    if (!query) {
+                        showError('Please enter a SQL query');
+                        return;
+                    }
+                    
+                    showLoading();
+                    vscode.postMessage({
+                        command: 'executeQuery',
+                        query: query
+                    });
+                }
+                
+                function loadTableData() {
+                    document.getElementById('queryInput').value = 'SELECT * FROM "${this._tableInfo.schema}"."${this._tableInfo.name}" LIMIT 200;';
+                    showLoading();
+                    vscode.postMessage({
+                        command: 'loadTableData'
+                    });
+                }
+                
+                function showLoading() {
+                    document.getElementById('tableContainer').innerHTML = '<div class="loading">Executing query...</div>';
+                    document.getElementById('rowCount').textContent = 'Loading...';
+                }
+                
+                function showError(message) {
+                    document.getElementById('tableContainer').innerHTML = 
+                        '<div class="error">Error: ' + message + '</div>';
+                    document.getElementById('rowCount').textContent = '';
+                }
+                
+                function displayResults(data) {
+                    const container = document.getElementById('tableContainer');
+                    const rowCount = document.getElementById('rowCount');
+                    
+                    if (!data.rows || data.rows.length === 0) {
+                        container.innerHTML = '<div class="no-data">No data found</div>';
+                        rowCount.textContent = '0 rows';
+                        return;
+                    }
+                    
+                    // Create table
+                    let html = '<table>';
+                    
+                    // Headers
+                    html += '<thead><tr>';
+                    data.columns.forEach(col => {
+                        html += '<th>' + escapeHtml(col) + '</th>';
+                    });
+                    html += '</tr></thead>';
+                    
+                    // Rows
+                    html += '<tbody>';
+                    data.rows.forEach(row => {
+                        html += '<tr>';
+                        data.columns.forEach(col => {
+                            const value = row[col];
+                            html += '<td>' + escapeHtml(value !== null && value !== undefined ? String(value) : '') + '</td>';
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</tbody></table>';
+                    
+                    container.innerHTML = html;
+                    rowCount.textContent = data.rowCount + ' rows';
+                }
+                
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Listen for messages from the extension
+                window.addEventListener('message', event => {
+                    const message = event.data;
+                    switch (message.command) {
+                        case 'queryResult':
+                            displayResults(message.data);
+                            break;
+                        case 'error':
+                            showError(message.error);
+                            break;
+                    }
+                });
+                
+                // Handle Ctrl+Enter to execute query
+                document.getElementById('queryInput').addEventListener('keydown', function(e) {
+                    if (e.ctrlKey && e.key === 'Enter') {
+                        executeQuery();
+                    }
+                });
+            </script>
+        </body>
+        </html>`;
+    }
+
+    public dispose() {
+        TableDataPanel.currentPanel = undefined;
+        this._panel.dispose();
+        while (this._disposables.length) {
+            const disposable = this._disposables.pop();
+            if (disposable) {
+                disposable.dispose();
+            }
+        }
+    }
+}

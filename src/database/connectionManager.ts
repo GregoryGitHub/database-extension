@@ -14,12 +14,18 @@ export interface DatabaseConnection {
 export class TableTreeItem extends vscode.TreeItem {
     constructor(
         public readonly name: string,
-        public readonly schema: string
+        public readonly schema: string,
+        public readonly connection: DatabaseConnection
     ) {
         super(`${schema}.${name}`, vscode.TreeItemCollapsibleState.None);
         this.tooltip = `${schema}.${name}`;
         this.iconPath = new vscode.ThemeIcon('table');
         this.contextValue = 'table';
+        this.command = {
+            command: 'database-manager.viewTableData',
+            title: 'View Table Data',
+            arguments: [this]
+        };
     }
 }
 
@@ -94,10 +100,8 @@ export class ConnectionTreeProvider implements vscode.TreeDataProvider<Connectio
                     ORDER BY table_schema, table_name
                 `);
 
-                await client.end();
-
-                const tables = result.rows.map(row => 
-                    new TableTreeItem(row.table_name, row.table_schema)
+                await client.end();                const tables = result.rows.map(row => 
+                    new TableTreeItem(row.table_name, row.table_schema, element.connection)
                 );
 
                 // Armazena em cache

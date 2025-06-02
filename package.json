@@ -29,8 +29,7 @@
           "contextualTitle": "Database Connections"
         }
       ]
-    },
-    "commands": [
+    },    "commands": [
       {
         "command": "database-manager.addConnection",
         "title": "Add Database Connection",
@@ -40,6 +39,10 @@
         "command": "database-manager.removeConnection",
         "title": "Remove Connection",
         "icon": "$(trash)"
+      },
+      {
+        "command": "database-manager.viewTableData",
+        "title": "View Table Data"
       }
     ],
     "menus": {

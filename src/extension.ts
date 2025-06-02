@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { ConnectionTreeProvider, DatabaseConnection } from './database/connectionManager';
+import { ConnectionTreeProvider, DatabaseConnection, TableTreeItem } from './database/connectionManager';
 import { ConnectionFormPanel } from './webview/connectionForm';
+import { TableDataPanel } from './webview/tableDataPanel';
 
 export function activate(context: vscode.ExtensionContext) {
     // Mostra mensagem de ativação
@@ -30,9 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             });
         })
-    );
-
-    // Comando para remover uma conexão
+    );    // Comando para remover uma conexão
     context.subscriptions.push(
         vscode.commands.registerCommand('database-manager.removeConnection', async (item) => {
             if (item && item.connection) {
@@ -46,6 +45,19 @@ export function activate(context: vscode.ExtensionContext) {
                 if (confirmed === 'Yes') {
                     await connectionProvider.removeConnection(item.connection.id);
                 }
+            }
+        })
+    );
+
+    // Comando para visualizar dados da tabela
+    context.subscriptions.push(
+        vscode.commands.registerCommand('database-manager.viewTableData', (tableItem: TableTreeItem) => {
+            if (tableItem) {
+                TableDataPanel.createOrShow(context.extensionUri, {
+                    name: tableItem.name,
+                    schema: tableItem.schema,
+                    connection: tableItem.connection
+                });
             }
         })
     );
