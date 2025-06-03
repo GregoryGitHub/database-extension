@@ -1,0 +1,168 @@
+/* VS Code compatible styles */
+:root {
+  /* VS Code theme variables */
+  --vscode-font-family: var(--vscode-font-family);
+  --vscode-font-size: var(--vscode-font-size);
+  --vscode-font-weight: var(--vscode-font-weight);
+  
+  /* Colors */
+  --vscode-foreground: var(--vscode-foreground);
+  --vscode-background: var(--vscode-background);
+  --vscode-focusBorder: var(--vscode-focusBorder);
+  
+  /* Input colors */
+  --vscode-input-background: var(--vscode-input-background);
+  --vscode-input-foreground: var(--vscode-input-foreground);
+  --vscode-input-border: var(--vscode-input-border);
+  --vscode-input-placeholderForeground: var(--vscode-input-placeholderForeground);
+  
+  /* Button colors */
+  --vscode-button-background: var(--vscode-button-background);
+  --vscode-button-foreground: var(--vscode-button-foreground);
+  --vscode-button-hoverBackground: var(--vscode-button-hoverBackground);
+  --vscode-button-secondaryBackground: var(--vscode-button-secondaryBackground);
+  --vscode-button-secondaryForeground: var(--vscode-button-secondaryForeground);
+  --vscode-button-secondaryHoverBackground: var(--vscode-button-secondaryHoverBackground);
+  
+  /* List colors */
+  --vscode-list-activeSelectionBackground: var(--vscode-list-activeSelectionBackground);
+  --vscode-list-activeSelectionForeground: var(--vscode-list-activeSelectionForeground);
+  --vscode-list-hoverBackground: var(--vscode-list-hoverBackground);
+  
+  /* Error colors */
+  --vscode-errorForeground: var(--vscode-errorForeground);
+  --vscode-warningForeground: var(--vscode-warningForeground);
+  
+  /* Badge colors */
+  --vscode-badge-background: var(--vscode-badge-background);
+  --vscode-badge-foreground: var(--vscode-badge-foreground);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  font-weight: var(--vscode-font-weight);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-background);
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+/* Common utility classes */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.gap-4 {
+  gap: 16px;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.p-2 {
+  padding: 8px;
+}
+
+.p-4 {
+  padding: 16px;
+}
+
+.text-sm {
+  font-size: 12px;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.text-error {
+  color: var(--vscode-errorForeground);
+}
+
+.text-warning {
+  color: var(--vscode-warningForeground);
+}

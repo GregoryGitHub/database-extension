@@ -1,37 +1,29 @@
 import * as vscode from 'vscode';
-import { ConnectionTreeProvider, DatabaseConnection, TableTreeItem } from './database/connectionManager';
+import { ConnectionTreeProvider, DatabaseConnection, TableTreeItem, ConnectionManager } from './database/connectionManager';
 import { ConnectionFormPanel } from './webview/connectionForm';
 import { TableDataPanel } from './webview/tableDataPanel';
 
 export function activate(context: vscode.ExtensionContext) {
-    // Mostra mensagem de ativação
+    // Show activation message
     vscode.window.showInformationMessage('Database Manager extension is now active!');
 
+    const connectionManager = new ConnectionManager(context);
     const connectionProvider = new ConnectionTreeProvider();
     
-    // Registra a view
+    // Register the tree view
     vscode.window.createTreeView('databaseConnections', {
         treeDataProvider: connectionProvider
-    });    // Comando para adicionar uma nova conexão
+    });
+
+    // Command to add a new connection
     context.subscriptions.push(
         vscode.commands.registerCommand('database-manager.addConnection', () => {
             console.log('Add connection command triggered');
-            ConnectionFormPanel.createOrShow(context.extensionUri, async (data: Omit<DatabaseConnection, 'id'>) => {
-                console.log('Form data received:', data);
-                const connection: DatabaseConnection = {
-                    id: Date.now().toString(),
-                    ...data
-                };
-
-                try {
-                    await connectionProvider.addConnection(connection);
-                } catch (error) {
-                    // Erro já é tratado no addConnection
-                    console.error('Error in command handler:', error);
-                }
-            });
+            ConnectionFormPanel.createOrShow(context.extensionUri, connectionManager);
         })
-    );    // Comando para remover uma conexão
+    );
+
+    // Command to remove a connection
     context.subscriptions.push(
         vscode.commands.registerCommand('database-manager.removeConnection', async (item) => {
             if (item && item.connection) {
@@ -43,13 +35,14 @@ export function activate(context: vscode.ExtensionContext) {
                 );
 
                 if (confirmed === 'Yes') {
+                    await connectionManager.deleteConnection(item.connection.name);
                     await connectionProvider.removeConnection(item.connection.id);
                 }
             }
         })
     );
 
-    // Comando para visualizar dados da tabela
+    // Command to view table data
     context.subscriptions.push(
         vscode.commands.registerCommand('database-manager.viewTableData', (tableItem: TableTreeItem) => {
             if (tableItem) {

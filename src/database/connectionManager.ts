@@ -40,6 +40,63 @@ export class ConnectionTreeItem extends vscode.TreeItem {
     }
 }
 
+export class ConnectionManager {
+    private context: vscode.ExtensionContext;
+    private readonly storageKey = 'database-connections';
+
+    constructor(context: vscode.ExtensionContext) {
+        this.context = context;
+    }
+
+    async testConnection(connectionData: any): Promise<boolean> {
+        const client = new Client({
+            host: connectionData.host,
+            port: connectionData.port,
+            database: connectionData.database,
+            user: connectionData.username,
+            password: connectionData.password,
+            ssl: connectionData.ssl
+        });
+
+        try {
+            await client.connect();
+            await client.query('SELECT 1');
+            await client.end();
+            return true;
+        } catch (error) {
+            await client.end().catch(() => {}); // Ignore errors when closing failed connection
+            throw error;
+        }
+    }
+
+    async saveConnection(connectionData: any): Promise<void> {
+        const connections = await this.getSavedConnections();
+        
+        // Check if connection with this name already exists
+        const existingIndex = connections.findIndex(conn => conn.name === connectionData.name);
+        
+        if (existingIndex >= 0) {
+            // Update existing connection
+            connections[existingIndex] = connectionData;
+        } else {
+            // Add new connection
+            connections.push(connectionData);
+        }
+
+        await this.context.globalState.update(this.storageKey, connections);
+    }
+
+    async getSavedConnections(): Promise<any[]> {
+        return this.context.globalState.get(this.storageKey, []);
+    }
+
+    async deleteConnection(connectionName: string): Promise<void> {
+        const connections = await this.getSavedConnections();
+        const filteredConnections = connections.filter(conn => conn.name !== connectionName);
+        await this.context.globalState.update(this.storageKey, filteredConnections);
+    }
+}
+
 export class ConnectionTreeProvider implements vscode.TreeDataProvider<ConnectionTreeItem | TableTreeItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ConnectionTreeItem | TableTreeItem | undefined | null | void> = new vscode.EventEmitter<ConnectionTreeItem | TableTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ConnectionTreeItem | TableTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
