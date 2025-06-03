@@ -153,9 +153,7 @@ export class ConnectionFormPanel {
         );
 
         ConnectionFormPanel.currentPanel = new ConnectionFormPanel(panel, extensionUri, connectionManager);
-    }
-
-    private _getHtmlContent(): string {
+    }    private _getHtmlContent(): string {
         const webviewUri = this._panel.webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, 'out', 'webview-ui')
         );
@@ -163,17 +161,17 @@ export class ConnectionFormPanel {
         const connectionFormHtmlPath = path.join(this._extensionUri.fsPath, 'out', 'webview-ui', 'connection-form.html');
         let html = fs.readFileSync(connectionFormHtmlPath, 'utf8');
 
-        // Replace relative paths with webview URIs
+        // Replace absolute asset paths with webview URIs
         html = html.replace(
-            /src="\/src\//g,
+            /src="\/assets\//g,
             `src="${webviewUri}/assets/`
         );
         html = html.replace(
-            /from "\/src\//g,
-            `from "${webviewUri}/assets/`
+            /href="\/assets\//g,
+            `href="${webviewUri}/assets/`
         );
 
-        // Add CSP meta tag for VS Code webview
+        // Update CSP meta tag for VS Code webview
         html = html.replace(
             '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\';">',
             `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this._panel.webview.cspSource} 'unsafe-inline'; script-src ${this._panel.webview.cspSource} 'unsafe-inline';">`
